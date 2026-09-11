@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>栖居 · 南昌酒店预订</title>
+  <style>
+    :root {
+      --ink: #1c1915;
+      --paper: #f4efe6;
+      --card: #fffdf8;
+      --line: #d9d0c3;
+      --accent: #9a3412;
+      --accent-2: #1f4d3a;
+      --muted: #6b6258;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", "Songti SC", serif;
+      background: var(--paper);
+      color: var(--ink);
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 28px 8vw 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    header strong { letter-spacing: .28em; font-size: 14px; }
+    header nav { display: flex; gap: 18px; font-size: 14px; }
+    header a { color: var(--ink); text-decoration: none; cursor: pointer; }
+    .hero { padding: 48px 8vw 24px; }
+    .hero h1 { font-size: 42px; font-weight: 600; margin: 0 0 8px; }
+    .hero p { color: var(--muted); margin: 0 0 28px; }
+    .search {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr .6fr auto;
+      gap: 10px;
+      background: var(--card);
+      padding: 16px;
+      border: 1px solid var(--line);
+    }
+    input, select, button, textarea {
+      font: inherit;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+    }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: 0;
+      cursor: pointer;
+    }
+    button.ghost { background: transparent; color: var(--accent-2); border: 1px solid var(--accent-2); }
+    main { padding: 12px 8vw 64px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      padding: 18px;
+      cursor: pointer;
+    }
+    .card h3 { margin: 0 0 6px; font-size: 20px; }
+    .meta { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+    .price { color: var(--accent); font-size: 22px; }
+    .panel {
+      display: none;
+      background: var(--card);
+      border: 1px solid var(--line);
+      padding: 20px;
+      margin-top: 16px;
+    }
+    .panel.show { display: block; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); font-size: 14px; }
+    .hint { font-size: 13px; color: var(--muted); }
+    .badge { display: inline-block; padding: 2px 8px; border: 1px solid var(--line); font-size: 12px; margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>QIJU 栖居</strong>
+    <nav>
+      <a onclick="show('search')">找酒店</a>
+      <a onclick="showOrders()">我的订单</a>
+      <a onclick="show('auth')">登录</a>
+      <span id="who" class="hint"></span>
+    </nav>
+  </header>
+  <section class="hero">
+    <h1>按日期订一间房，<br>而不是按件数卖库存。</h1>
+    <p>南昌 25 家酒店 · 日历房态 · 未支付 15 分钟自动回补。默认账号 demo / demo123</p>
+    <div class="search" id="searchBar">
+      <input id="keyword" placeholder="酒店名，例如 万达" />
+      <input id="checkIn" type="date" />
+      <input id="checkOut" type="date" />
+      <input id="rooms" type="number" min="1" max="5" value="1" />
+      <button onclick="searchHotels()">搜索</button>
+    </div>
+  </section>
+  <main>
+    <section id="view-search">
+      <div id="source" class="hint"></div>
+      <div class="grid" id="list"></div>
+    </section>
+    <section id="view-detail" class="panel"></section>
+    <section id="view-orders" class="panel"></section>
+    <section id="view-auth" class="panel">
+      <h2>登录 / 注册</h2>
+      <div class="row">
+        <input id="username" placeholder="用户名" value="demo" />
+        <input id="password" type="password" placeholder="密码" value="demo123" />
+        <button onclick="login()">登录</button>
+        <button class="ghost" onclick="register()">注册</button>
+      </div>
+    </section>
+  </main>
+  <script>
+    const api = '';
+    let token = localStorage.getItem('qijuToken') || '';
+    let currentHotel = null;
+    function headers() {
+      const h = { 'Content-Type': 'application/json' };
+      if (token) h.Authorization = 'Bearer ' + token;
+      return h;
+    }
+    function show(name) {
+      ['search','detail','orders','auth'].forEach(v => {
+        const el = document.getElementById('view-' + v);
+        if (!el) return;
+        if (v === 'search') el.style.display = name === 'search' ? 'block' : 'none';
+        else el.classList.toggle('show', v === name);
+      });
+    }
+    function todayPlus(n) {
+      const d = new Date();
+      d.setDate(d.getDate() + n);
+      return d.toISOString().slice(0,10);
+    }
+    document.getElementById('checkIn').value = todayPlus(7);
+    document.getElementById('checkOut').value = todayPlus(9);
+    async function searchHotels() {
+      show('search');
+      const q = new URLSearchParams({
+        city: '南昌',
+        keyword: document.getElementById('keyword').value,
+        checkIn: document.getElementById('checkIn').value,
+        checkOut: document.getElementById('checkOut').value,
+        rooms: document.getElementById('rooms').value
+      });
+      const res = await fetch(api + '/api/hotels/search?' + q);
+      const json = await res.json();
+      const records = json.data?.records || [];
+      document.getElementById('source').textContent = records[0]
+        ? ('召回源：' + records[0].searchSource + ' · 共 ' + json.data.total + ' 家有房酒店')
+        : (json.message || '没有符合日期的酒店');
+      document.getElementById('list').innerHTML = records.map(h => `
+        <article class="card" onclick="openHotel(${h.id})">
+          <h3>${h.name}</h3>
+          <div class="meta">${h.starRating}星 · ${h.address}</div>
+          <div class="meta">${(h.availableRoomTypes||[]).join(' / ')}</div>
+          <div class="price">¥${h.minStayPrice || '--'} <span class="hint">区间最低</span></div>
+        </article>`).join('');
+    }
+    async function openHotel(id) {
+      const checkIn = document.getElementById('checkIn').value;
+      const checkOut = document.getElementById('checkOut').value;
+      const res = await fetch(api + `/api/hotels/${id}?checkIn=${checkIn}&checkOut=${checkOut}`);
+      const json = await res.json();
+      currentHotel = json.data;
+      show('detail');
+      const el = document.getElementById('view-detail');
+      el.classList.add('show');
+      el.innerHTML = `
+        <h2>${currentHotel.name}</h2>
+        <p class="meta">${currentHotel.address} · ${currentHotel.amenities}</p>
+        <p>${currentHotel.description || ''}</p>
+        ${(currentHotel.roomTypes||[]).map(rt => `
+          <div class="card" style="cursor:default;margin-bottom:12px">
+            <h3>${rt.name}</h3>
+            <div class="meta">${rt.bedDesc} · 可住${rt.occupancy}人 · 区间最少剩余 ${rt.minRemain} 间</div>
+            <table>
+              <tr><th>日期</th><th>房价</th><th>剩余</th></tr>
+              ${(rt.calendar||[]).map(n => `<tr><td>${n.stayDate}</td><td>¥${n.price}</td><td>${n.available}</td></tr>`).join('')}
+            </table>
+            <button onclick="book(${rt.id})">预订该房型</button>
+          </div>`).join('')}`;
+    }
+    async function book(roomTypeId) {
+      if (!token) { show('auth'); return; }
+      const body = {
+        roomTypeId,
+        checkIn: document.getElementById('checkIn').value,
+        checkOut: document.getElementById('checkOut').value,
+        rooms: Number(document.getElementById('rooms').value),
+        requestId: crypto.randomUUID()
+      };
+      const res = await fetch(api + '/api/orders', { method: 'POST', headers: headers(), body: JSON.stringify(body) });
+      const json = await res.json();
+      if (json.code !== 0) { alert(json.message); return; }
+      alert('下单成功，待支付。订单号 ' + json.data.orderNo);
+      showOrders();
+    }
+    async function login() {
+      const res = await fetch(api + '/api/auth/login', {
+        method: 'POST', headers: headers(),
+        body: JSON.stringify({ username: username.value, password: password.value })
+      });
+      const json = await res.json();
+      if (json.code !== 0) { alert(json.message); return; }
+      token = json.data.token;
+      localStorage.setItem('qijuToken', token);
+      document.getElementById('who').textContent = json.data.username;
+      show('search');
+    }
+    async function register() {
+      const res = await fetch(api + '/api/auth/register', {
+        method: 'POST', headers: headers(),
+        body: JSON.stringify({ username: username.value, password: password.value })
+      });
+      const json = await res.json();
+      if (json.code !== 0) { alert(json.message); return; }
+      token = json.data.token;
+      localStorage.setItem('qijuToken', token);
+      document.getElementById('who').textContent = json.data.username;
+    }
+    async function showOrders() {
+      show('orders');
+      if (!token) { document.getElementById('view-orders').innerHTML = '<p>请先登录</p>'; return; }
+      const res = await fetch(api + '/api/orders/mine', { headers: headers() });
+      const json = await res.json();
+      const orders = json.data || [];
+      document.getElementById('view-orders').innerHTML = '<h2>我的订单</h2>' + orders.map(o => `
+        <div class="card" style="cursor:default;margin-bottom:12px">
+          <span class="badge">${o.status}</span>
+          <strong>${o.hotelName}</strong> · ${o.roomTypeName}<br>
+          <span class="hint">${o.checkIn} 至 ${o.checkOut} · ${o.nights}晚 · ¥${o.amount} · ${o.orderNo}</span>
+          <div class="row" style="margin-top:10px">
+            ${o.status === 'PENDING_PAY' ? `<button onclick="act(${o.id},'pay')">模拟支付</button>` : ''}
+            ${o.status === 'PENDING_PAY' || o.status === 'CONFIRMED' ? `<button class="ghost" onclick="act(${o.id},'cancel')">取消</button>` : ''}
+          </div>
+        </div>`).join('') || '<p>暂无订单</p>';
+    }
+    async function act(id, action) {
+      const res = await fetch(api + `/api/orders/${id}/${action}`, { method: 'POST', headers: headers() });
+      const json = await res.json();
+      if (json.code !== 0) { alert(json.message); return; }
+      showOrders();
+    }
+    if (token) document.getElementById('who').textContent = '已登录';
+    searchHotels();
+  </script>
+</body>
+</html>

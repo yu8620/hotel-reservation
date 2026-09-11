@@ -1,0 +1,38 @@
+### 登录
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{ "username": "demo", "password": "demo123" }
+
+> {% client.global.set("token", response.body.data.token); %}
+
+### 搜索有房酒店
+GET http://localhost:8080/api/hotels/search?city=南昌&keyword=万达&checkIn={{$todayPlus7}}&checkOut={{$todayPlus9}}&rooms=1
+
+### 酒店详情
+GET http://localhost:8080/api/hotels/1?checkIn=2026-08-24&checkOut=2026-08-26
+
+### 下单（每次换一个 requestId）
+POST http://localhost:8080/api/orders
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "roomTypeId": 1,
+  "checkIn": "2026-08-24",
+  "checkOut": "2026-08-26",
+  "rooms": 1,
+  "requestId": "demo-request-001"
+}
+
+### 支付
+POST http://localhost:8080/api/orders/1/pay
+Authorization: Bearer {{token}}
+
+### 我的订单
+GET http://localhost:8080/api/orders/mine
+Authorization: Bearer {{token}}
+
+### 管理员重建 ES
+POST http://localhost:8080/api/admin/es/rebuild
+Authorization: Bearer {{adminToken}}

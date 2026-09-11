@@ -1,0 +1,23 @@
+package org.example.hotelreservation.mq;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelreservation.config.HotelProperties;
+import org.example.hotelreservation.config.RabbitMqConfig;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.stereotype.Component;
+
+@Component
+@RequiredArgsConstructor
+public class OrderTimeoutPublisher {
+
+    private final RabbitTemplate rabbitTemplate;
+    private final HotelProperties properties;
+
+    public void sendDelayClose(String orderNo) {
+        long ttl = properties.getOrder().getPayTimeoutMinutes() * 60_000L;
+        rabbitTemplate.convertAndSend(RabbitMqConfig.EXCHANGE, RabbitMqConfig.DELAY_RK, orderNo, message -> {
+            message.getMessageProperties().setExpiration(String.valueOf(ttl));
+            return message;
+        });
+    }
+}
