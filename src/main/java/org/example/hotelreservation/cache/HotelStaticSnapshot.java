@@ -1,6 +1,8 @@
 package org.example.hotelreservation.cache;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.NoArgsConstructor;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -9,6 +11,8 @@ import java.util.List;
 /** L2: date-independent hotel + room-type basics. */
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class HotelStaticSnapshot {
     private Long id;
     private String name;
@@ -23,6 +27,8 @@ public class HotelStaticSnapshot {
 
     @Data
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class RoomTypeStatic {
         private Long id;
         private String name;
