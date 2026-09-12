@@ -14,6 +14,7 @@ import org.example.hotelreservation.entity.OrderNight;
 import org.example.hotelreservation.entity.RoomInventory;
 import org.example.hotelreservation.entity.RoomType;
 import org.example.hotelreservation.enums.OrderStatus;
+import org.example.hotelreservation.cache.HotelReadCache;
 import org.example.hotelreservation.inventory.InventoryService;
 import org.example.hotelreservation.mapper.BookingOrderMapper;
 import org.example.hotelreservation.mapper.HotelMapper;
@@ -46,6 +47,7 @@ public class OrderService {
     private final OrderTimeoutPublisher timeoutPublisher;
     private final HotelProperties properties;
     private final TransactionTemplate transactionTemplate;
+    private final HotelReadCache hotelReadCache;
 
     public OrderResponse create(Long userId, CreateOrderRequest request) {
         BookingOrder existed = orderMapper.selectOne(new LambdaQueryWrapper<BookingOrder>()
@@ -87,6 +89,8 @@ public class OrderService {
         } catch (Exception ex) {
             log.warn("delay message failed, scheduler will close order {}: {}", order.getOrderNo(), ex.getMessage());
         }
+        hotelReadCache.evictAfterInventoryChange(order.getHotelId(), order.getRoomTypeId(),
+                order.getCheckIn(), order.getCheckOut(), order.getRooms());
         return toResponse(order);
     }
 
@@ -197,6 +201,8 @@ public class OrderService {
         });
         if (Boolean.TRUE.equals(changed)) {
             inventoryService.restoreRedis(order.getRoomTypeId(), nights, order.getRooms());
+            hotelReadCache.evictAfterInventoryChange(order.getHotelId(), order.getRoomTypeId(),
+                    order.getCheckIn(), order.getCheckOut(), order.getRooms());
         }
         return toResponse(orderMapper.selectById(order.getId()));
     }

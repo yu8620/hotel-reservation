@@ -76,6 +76,13 @@ hotel:
     calendar-days: 90
   search:
     index: hotels
+  cache:
+    enabled: true
+    search-ttl-seconds: 45
+    static-ttl-seconds: 1800
+    quote-ttl-seconds: 30
+    calendar-ttl-seconds: 20
+    compare-ttl-seconds: 86400
 
 logging:
   pattern:

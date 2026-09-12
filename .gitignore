@@ -50,3 +50,8 @@ logs/
 start-local.sh
 *.local.sh
 
+
+compile-check.sh
+dep-*.sh
+cp.txt
+

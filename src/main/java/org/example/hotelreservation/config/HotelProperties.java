@@ -11,6 +11,7 @@ public class HotelProperties {
     private Order order = new Order();
     private Inventory inventory = new Inventory();
     private Search search = new Search();
+    private Cache cache = new Cache();
 
     @Data
     public static class Jwt {
@@ -32,5 +33,16 @@ public class HotelProperties {
     @Data
     public static class Search {
         private String index = "hotels";
+    }
+
+    @Data
+    public static class Cache {
+        /** Master switch for compare/read-path cache. */
+        private boolean enabled = true;
+        private int searchTtlSeconds = 45;
+        private int staticTtlSeconds = 1800;
+        private int quoteTtlSeconds = 30;
+        private int calendarTtlSeconds = 20;
+        private int compareTtlSeconds = 86400;
     }
 }

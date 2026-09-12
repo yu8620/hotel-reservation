@@ -1,6 +1,6 @@
 # 比价读路径 Redis 缓存设计
 
-> 状态：设计稿（先文档、后代码逐步落地）  
+> 状态：P0–P4 已落地代码（持续按变更记录补全）  
 > 范围：只优化「搜酒店 / 看详情 / 比价」读多写少路径  
 > 不动：下单 Lua 日历库存、支付、超时关单  
 > 对齐接口：`GET /api/hotels/search`、`GET /api/hotels/{id}`  
@@ -152,11 +152,11 @@ hr:compare:v1:{userId|anonSid}
 
 | 项 | 说明 | 状态 |
 |----|------|------|
-| `cache/HotelCacheKeys.java` | 集中拼 key | 待做 |
-| `cache/HotelReadCache.java` | get/put/mget/evict 封装 | 待做 |
-| `HotelQueryService` | search / detail 包读缓存 | 待做 |
-| `OrderService` | 扣减 / 回补后 `evictQuoteAndCal` | 待做 |
-| `hotel.cache.*` 配置 | 开关、各层 TTL | 待做 |
+| `cache/HotelCacheKeys.java` | 集中拼 key | 已完成 |
+| `cache/HotelReadCache.java` | get/put/mget/evict 封装 | 已完成 |
+| `HotelQueryService` | search / detail 包读缓存 | 已完成 |
+| `OrderService` | 扣减 / 回补后 `evictAfterInventoryChange` | 已完成 |
+| `hotel.cache.*` 配置 | 开关、各层 TTL | 已完成 |
 | 可选 Caffeine | 仅 L2 本地二级缓存 1～5min | 可选 |
 | 可选 L5 对比栏 | 前端对比 / 浏览历史 | 可选 |
 
@@ -206,11 +206,11 @@ hotel:
 
 | 阶段 | 内容 | 状态 |
 |------|------|------|
-| P0 | Key 工具类 + L2 static 接入 detail | 待做 |
-| P1 | L3 quote 批量拼 search 卡片 | 待做 |
-| P2 | L1 search 整页缓存 | 待做 |
-| P3 | 下单 / 回补失效 L3、L4 | 待做 |
-| P4 | L4 日历缓存 + 命中日志 | 待做 |
+| P0 | Key 工具类 + L2 static 接入 detail | 已完成 |
+| P1 | L3 quote 批量拼 search 卡片 | 已完成 |
+| P2 | L1 search 整页缓存 | 已完成 |
+| P3 | 下单 / 回补失效 L3、L4 | 已完成 |
+| P4 | L4 日历缓存 + 读失败降级日志 | 已完成 |
 | P5 | 可选：L5 对比栏、Caffeine | 待定 |
 
 每完成一阶段：勾选本节状态，并在下方「变更记录」补一行。
@@ -237,3 +237,4 @@ hotel:
 | 日期 | 说明 |
 |------|------|
 | 2026-09-12 | 初稿：分层 key、读写路径、失效策略、实施顺序 |
+| 2026-09-12 | 代码落地 P0–P4：cache 分层（Keys / Snapshot / ReadCache）、Query 组装、Order 失效；读写与库存扣减解耦 |
