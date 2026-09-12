@@ -67,7 +67,7 @@ management:
 
 hotel:
   jwt:
-    secret: "FAKESECRET_a2b3c4d5e6f7g8h9i0j1"
+    secret: "hotel-reservation-demo-jwt-hmac-secret-at-least-32-bytes-long"
     expire-hours: 24
   order:
     pay-timeout-minutes: 15

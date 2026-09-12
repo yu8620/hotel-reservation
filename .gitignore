@@ -47,3 +47,6 @@ logs/
 ### Local overrides ###
 **/application-local.yaml
 **/application-local.yml
+start-local.sh
+*.local.sh
+

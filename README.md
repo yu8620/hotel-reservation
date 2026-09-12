@@ -97,3 +97,7 @@ catch 里 `restoreRedis`。下单写库用 `TransactionTemplate` 包住「扣 My
 4. Redis 宕机时降级 MySQL 条件更新；MQ 丢失时用定时任务补偿关单。
 
 不要写没跑过的 QPS。压测建议用 JMeter 打 `POST /api/orders`，同一 `roomTypeId=1`、同一入住日期、不同 `requestId`。
+
+## 设计文档
+
+- 比价读路径 Redis 缓存：[docs/cache-design.md](docs/cache-design.md)

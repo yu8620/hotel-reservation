@@ -42,20 +42,70 @@
       padding: 16px;
       border: 1px solid var(--line);
     }
-    input, select, button, textarea {
+        input, select, button, textarea {
       font: inherit;
       padding: 10px 12px;
-      border: 1px solid var(--line);
+      border: 1.5px solid var(--line);
       background: #fff;
       color: var(--ink);
+      border-radius: 6px;
+      outline: none;
+      transition: border-color .15s ease, background .15s ease, box-shadow .15s ease, transform .05s ease;
+    }
+    input:hover, select:hover, textarea:hover {
+      border-color: #b8a893;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(154, 52, 18, .15);
     }
     button {
       background: var(--accent);
       color: #fff;
-      border: 0;
+      border: 1.5px solid #7c2d12;
       cursor: pointer;
+      font-weight: 600;
+      letter-spacing: .04em;
+      box-shadow: 0 1px 0 rgba(28, 25, 21, .08);
     }
-    button.ghost { background: transparent; color: var(--accent-2); border: 1px solid var(--accent-2); }
+    button:hover {
+      background: #7c2d12;
+      border-color: #5c220d;
+    }
+    button:active {
+      transform: translateY(1px);
+      box-shadow: none;
+    }
+    button:focus-visible {
+      box-shadow: 0 0 0 3px rgba(154, 52, 18, .28);
+    }
+    button.ghost {
+      background: #fff;
+      color: var(--accent-2);
+      border: 1.5px solid var(--accent-2);
+      box-shadow: none;
+    }
+    button.ghost:hover {
+      background: #eef6f1;
+      border-color: #163828;
+      color: #163828;
+    }
+    header a {
+      border: 1.5px solid transparent;
+      border-radius: 6px;
+      padding: 6px 10px;
+    }
+    header a:hover {
+      border-color: var(--line);
+      background: #fff;
+    }
+    .card {
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 4px 14px rgba(28, 25, 21, .08);
+    }
     main { padding: 12px 8vw 64px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
     .card {
