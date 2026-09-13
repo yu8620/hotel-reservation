@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
  * <ul>
  *   <li>Lua 成功、DB 失败：执行 restore Lua，Redis 回到扣减前。</li>
  *   <li>Lua 成功、进程在写库前宕机：Redis 偏少（少卖），不超订；管理员可 reload。</li>
- *   <li>Redis 宕机：降级为只走 MySQL 条件更新，正确但更慢。</li>
+ *   <li>Redis 宕机：扣减失败关闭（拒绝下单），避免 Redis 已预占/已扣到 0 但 MySQL 未更新时流量打到 DB 超卖；读路径仍可降级 MySQL。</li>
  * </ul>
  */
 @Slf4j
@@ -79,14 +79,19 @@ public class InventoryService {
         }
     }
 
+    /**
+     * Redis Lua 预占。false=售罄；Redis 不可用时抛 INVENTORY_UNAVAILABLE（不降级打 MySQL 扣减）。
+     */
     public boolean tryDeductRedis(Long roomTypeId, List<LocalDate> nights, int rooms) {
         try {
             warmUp(roomTypeId, nights);
             Long ok = redis.execute(deductScript, keys(roomTypeId, nights), String.valueOf(rooms));
             return ok != null && ok == 1L;
+        } catch (BizException ex) {
+            throw ex;
         } catch (Exception ex) {
-            log.warn("redis deduct unavailable, fallback to mysql: {}", ex.getMessage());
-            return true;
+            log.warn("redis deduct unavailable, reject order without mysql fallback: {}", ex.getMessage());
+            throw new BizException(ResultCode.INVENTORY_UNAVAILABLE);
         }
     }
 

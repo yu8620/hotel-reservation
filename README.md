@@ -68,6 +68,9 @@ Redis 是加速和跨晚原子性；MySQL 是权威。Redis 误放行或重启�
 **4. Lua 成功、写库失败怎么办？**  
 catch 里 `restoreRedis`。下单写库用 `TransactionTemplate` 包住「扣 MySQL + 插订单 + 插 order_night」，避免只扣了库存没有订单。
 
+**4.1 Redis 宕机为什么不降级用 MySQL 继续扣？**  
+扣减路径失败关闭：避免 Redis 已预占（甚至已扣到 0）但 MySQL 未更新时，流量打到 DB 超卖。搜索/详情读路径仍可降级 MySQL。恢复后 `reload` 以 MySQL 回填 `inv:*`。
+
 **5. 支付和超时关单同时到？**  
 `UPDATE ... WHERE id=? AND status='PENDING_PAY'`，CAS 只有一条成功。
 
@@ -109,7 +112,7 @@ catch 里 `restoreRedis`。下单写库用 `TransactionTemplate` 包住「扣 My
 1. 设计「房型 + 日期」日历库存，入住区间 Redis + Lua 原子扣减；本地 **100 并发抢 3 间** 成功单恰好 3、MySQL/Redis 库存归零、零超卖。  
 2. Elasticsearch 做酒店关键词 / 城市 / 星级 / 地理位置召回，房态与 ES 解耦，先召回再校验日历。  
 3. RabbitMQ TTL + 死信处理未支付关单并回补房态；支付回调按订单状态 CAS 幂等。  
-4. Redis 宕机时降级 MySQL 条件更新；MQ 丢失时用定时任务补偿关单。
+4. Redis 宕机时扣减失败关闭（防超卖）；读路径可降级 MySQL；MQ 丢失时用定时任务补偿关单。
 
 压测脚本：`scripts/loadtest-oversell.ps1`（勿编造未跑过的 QPS）。
 

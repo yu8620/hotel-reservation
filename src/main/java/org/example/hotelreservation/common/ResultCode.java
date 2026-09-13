@@ -13,6 +13,7 @@ public enum ResultCode {
     SOLD_OUT(410, "所选日期库存不足"),
     ORDER_STATUS_INVALID(411, "订单状态不允许该操作"),
     DUPLICATE_REQUEST(412, "重复请求"),
+    INVENTORY_UNAVAILABLE(503, "库存服务暂不可用，请稍后重试"),
     SERVER_ERROR(500, "服务器内部错误");
 
     private final int code;
