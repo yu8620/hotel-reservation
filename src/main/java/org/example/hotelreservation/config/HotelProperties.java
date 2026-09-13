@@ -21,7 +21,7 @@ public class HotelProperties {
 
     @Data
     public static class Order {
-        private int payTimeoutMinutes = 15;
+        private int payTimeoutMinutes = 30;
         private int freeCancelHours = 24;
     }
 

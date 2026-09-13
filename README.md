@@ -49,7 +49,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\loadtest-oversell.ps1 -Concur
         → 下单：Lua 区间原子扣减 → 同一事务写 MySQL 库存+订单
             → 成功：发 TTL 消息到 delay 队列
             → DB 失败：Lua 回补
-        → 15 分钟未支付：死信进 close 队列关单并回补
+        → 30 分钟未支付：死信进 close 队列关单并回补
         → 定时任务每 30 秒扫过期订单（MQ 丢消息的兜底）
         → 支付：CAS PENDING_PAY → CONFIRMED（和关单互斥）
 ```

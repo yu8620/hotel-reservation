@@ -70,7 +70,7 @@ hotel:
     secret: "hotel-reservation-demo-jwt-hmac-secret-at-least-32-bytes-long"
     expire-hours: 24
   order:
-    pay-timeout-minutes: 15
+    pay-timeout-minutes: 30
     free-cancel-hours: 24
   inventory:
     calendar-days: 90
