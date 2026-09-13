@@ -1,6 +1,6 @@
 # 比价读路径 Redis 缓存设计
 
-> 状态：P0–P4 已落地代码（持续按变更记录补全）  
+> 状态：P0–P4 已落地；已补防穿透（空对象）、防雪崩（TTL 抖动）  
 > 范围：只优化「搜酒店 / 看详情 / 比价」读多写少路径  
 > 不动：下单 Lua 日历库存、支付、超时关单  
 > 对齐接口：`GET /api/hotels/search`、`GET /api/hotels/{id}`  
@@ -175,6 +175,8 @@ hotel:
     quote-ttl-seconds: 30
     calendar-ttl-seconds: 20
     compare-ttl-seconds: 86400
+    null-object-ttl-seconds: 120   # 详情不存在时的空对象 TTL
+    ttl-jitter-seconds: 15         # 实际 TTL = 基础值 + random[0, jitter]，防雪崩
 ```
 
 ---
@@ -238,6 +240,8 @@ hotel:
 |------|------|
 | 2026-09-12 | 初稿：分层 key、读写路径、失效策略、实施顺序 |
 | 2026-09-12 | 代码落地 P0–P4：cache 分层（Keys / Snapshot / ReadCache）、Query 组装、Order 失效；读写与库存扣减解耦 |
+| 2026-09-13 | 防穿透：详情 L2 缓存空对象（missing + 短 TTL），未上布隆 |
+| 2026-09-13 | 防雪崩：write 路径 TTL + random jitter（ttl-jitter-seconds） |
 
 ## 11. 防穿透：缓存空对象
 

@@ -100,4 +100,4 @@ catch 里 `restoreRedis`。下单写库用 `TransactionTemplate` 包住「扣 My
 
 ## 设计文档
 
-- 比价读路径 Redis 缓存：[docs/cache-design.md](docs/cache-design.md)
+- 比价读路径 Redis 缓存（含空对象防穿透、TTL 抖动防雪崩）：[docs/cache-design.md](docs/cache-design.md)
