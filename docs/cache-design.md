@@ -256,3 +256,19 @@ hotel:
 不在此阶段上布隆过滤器（酒店量小，空对象足够讲清穿透）。
 
 | 2026-09-13 | 防穿透：详情 L2 缓存空对象（missing + 短 TTL），未上布隆 |
+
+## 12. 防雪崩：TTL 随机抖动
+
+> 状态：已落地
+
+写入缓存时实际过期时间：
+
+```text
+TTL = baseTtlSeconds + random(0, ttl-jitter-seconds)   // 含两端
+```
+
+配置：`hotel.cache.ttl-jitter-seconds`（默认 **15**）。
+
+这样同一批搜索/报价 key 不会在同一秒集体失效，打穿 DB/ES 的风险更低。与「空对象防穿透」「写后删防击穿热点」互补。
+
+| 2026-09-13 | 防雪崩：write 路径 TTL + random jitter（ttl-jitter-seconds） |

@@ -46,5 +46,7 @@ public class HotelProperties {
         private int compareTtlSeconds = 86400;
         /** TTL for cached null-objects (missing hotel). */
         private int nullObjectTtlSeconds = 120;
+        /** Extra random seconds added to every TTL: [0, jitter] inclusive, anti-avalanche. */
+        private int ttlJitterSeconds = 15;
     }
 }

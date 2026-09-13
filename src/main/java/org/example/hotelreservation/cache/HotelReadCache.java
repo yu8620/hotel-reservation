@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Redis I/O for compare/read path only.
@@ -182,9 +183,21 @@ public class HotelReadCache {
         }
         try {
             String json = objectMapper.writeValueAsString(value);
-            stringRedisTemplate.opsForValue().set(key, json, Duration.ofSeconds(ttlSeconds));
+            stringRedisTemplate.opsForValue().set(key, json, Duration.ofSeconds(withJitter(ttlSeconds)));
         } catch (Exception ex) {
             log.warn("cache write {} failed: {}", key, ex.getMessage());
         }
+    }
+
+    /**
+     * Spread expirations: actual TTL = base + random[0, ttlJitterSeconds].
+     * Avoids many keys vanishing in the same second (cache avalanche).
+     */
+    private int withJitter(int baseSeconds) {
+        int jitter = properties.getCache().getTtlJitterSeconds();
+        if (jitter <= 0) {
+            return baseSeconds;
+        }
+        return baseSeconds + ThreadLocalRandom.current().nextInt(jitter + 1);
     }
 }

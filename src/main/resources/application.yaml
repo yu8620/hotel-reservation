@@ -84,6 +84,7 @@ hotel:
     calendar-ttl-seconds: 20
     compare-ttl-seconds: 86400
     null-object-ttl-seconds: 120
+    ttl-jitter-seconds: 15
 
 logging:
   pattern:
