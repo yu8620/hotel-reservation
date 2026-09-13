@@ -42,6 +42,18 @@ public final class HotelCacheKeys {
         return PREFIX + "cal:v1:" + roomTypeId + ":" + d(checkIn) + ":" + d(checkOut);
     }
 
+
+    public static String lockSearch(String searchKey) {
+        return PREFIX + "lock:search:v1:" + Integer.toHexString(searchKey.hashCode());
+    }
+
+    public static String lockStatic(Long hotelId) {
+        return PREFIX + "lock:static:v1:" + hotelId;
+    }
+
+    public static String lockCalendar(Long roomTypeId, LocalDate checkIn, LocalDate checkOut) {
+        return PREFIX + "lock:cal:v1:" + roomTypeId + ":" + d(checkIn) + ":" + d(checkOut);
+    }
     private static String d(LocalDate date) {
         return date == null ? "n" : date.toString();
     }

@@ -85,6 +85,9 @@ hotel:
     compare-ttl-seconds: 86400
     null-object-ttl-seconds: 120
     ttl-jitter-seconds: 15
+    lock-ttl-seconds: 5
+    lock-wait-millis: 40
+    lock-wait-retries: 5
 
 logging:
   pattern:

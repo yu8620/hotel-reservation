@@ -276,3 +276,38 @@ TTL = baseTtlSeconds + random(0, ttl-jitter-seconds)   // 含两端
 这样同一批搜索/报价 key 不会在同一秒集体失效，打穿 DB/ES 的风险更低。与「空对象防穿透」「写后删防击穿热点」互补。
 
 | 2026-09-13 | 防雪崩：write 路径 TTL + random jitter（ttl-jitter-seconds） |
+
+## 13. 缓存击穿：互斥重建
+
+> 状态：已落地
+
+热点 key 过期瞬间，大量并发同时 miss 回源会把 DB/ES 打穿。这里用 **Redis 互斥锁** 保证同一时刻只有一个请求重建：
+
+`	ext
+miss → SET lock NX EX lock-ttl
+  ├─ 拿到锁：double-check 缓存 → loader → put → unlock
+  └─ 未拿到：sleep(lock-wait-millis) × lock-wait-retries 再读缓存
+       └─ 仍 miss：降级自己重建（避免挂死请求）
+`
+
+实现：CacheMutex.loadThrough；锁 key：HotelCacheKeys.lockSearch / lockStatic / lockCalendar。
+
+接入点：
+
+| 场景 | 锁 key | 说明 |
+|------|--------|------|
+| L1 搜索 miss | hr:lock:search:... | 非 geo 搜索 |
+| L2 静态 miss | hr:lock:static:{hotelId} | 含 missing 空对象写入 |
+| L4 日历 miss | hr:lock:calendar:... | 房型 × 入住离店 |
+
+配置（hotel.cache）：
+
+| 项 | 默认 | 含义 |
+|----|------|------|
+| lock-ttl-seconds | 5 | 锁持有时间（防死锁） |
+| lock-wait-millis | 40 | 等待方每次休眠 |
+| lock-wait-retries | 5 | 再读缓存次数 |
+
+解锁用 Lua 比对 token，避免误删别人的锁。订单扣减路径仍走 Lua 库存，**不**走这套读缓存互斥。
+
+| 2026-09-13 | 击穿：Redis SET NX 互斥重建（CacheMutex） |

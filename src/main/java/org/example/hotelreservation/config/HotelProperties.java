@@ -48,5 +48,11 @@ public class HotelProperties {
         private int nullObjectTtlSeconds = 120;
         /** Extra random seconds added to every TTL: [0, jitter] inclusive, anti-avalanche. */
         private int ttlJitterSeconds = 15;
+        /** Mutex hold time while rebuilding a hot cache entry. */
+        private int lockTtlSeconds = 5;
+        /** Sleep between cache re-reads when lock not acquired. */
+        private int lockWaitMillis = 40;
+        /** How many times waiters re-read cache before falling back to rebuild. */
+        private int lockWaitRetries = 5;
     }
 }

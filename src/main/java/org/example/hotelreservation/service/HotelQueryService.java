@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.hotelreservation.cache.CalendarSnapshot;
 import org.example.hotelreservation.cache.HotelCacheKeys;
 import org.example.hotelreservation.cache.HotelQuoteSnapshot;
+import org.example.hotelreservation.cache.CacheMutex;
 import org.example.hotelreservation.cache.HotelReadCache;
 import org.example.hotelreservation.cache.HotelStaticSnapshot;
 import org.example.hotelreservation.common.BizException;
@@ -32,7 +33,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -49,6 +49,7 @@ public class HotelQueryService {
     private final HotelEsSearchService esSearchService;
     private final HotelIndexService hotelIndexService;
     private final HotelReadCache hotelReadCache;
+    private final CacheMutex cacheMutex;
 
     public PageResponse<HotelCardResponse> search(HotelSearchQuery query) {
         int page = query.getPage() == null || query.getPage() < 1 ? 1 : query.getPage();
@@ -63,17 +64,11 @@ public class HotelQueryService {
                     query.getCity(), checkIn, checkOut, rooms,
                     query.getStar(), query.getKeyword(), query.getMinPrice(), query.getMaxPrice(),
                     page, size);
-            Optional<PageResponse<HotelCardResponse>> cached = hotelReadCache.getSearch(searchKey);
-            if (cached.isPresent()) {
-                PageResponse<HotelCardResponse> hit = cached.get();
-                if (hit.getRecords() != null) {
-                    hit.getRecords().forEach(card -> card.setSearchSource("CACHE"));
-                }
-                return hit;
-            }
-            PageResponse<HotelCardResponse> fresh = searchUncached(query, page, size, rooms, checkIn, checkOut);
-            hotelReadCache.putSearch(searchKey, fresh);
-            return fresh;
+            return cacheMutex.loadThrough(
+                    HotelCacheKeys.lockSearch(searchKey),
+                    () -> markSearchCache(hotelReadCache.getSearch(searchKey).orElse(null)),
+                    () -> searchUncached(query, page, size, rooms, checkIn, checkOut),
+                    pageResp -> hotelReadCache.putSearch(searchKey, pageResp));
         }
         return searchUncached(query, page, size, rooms, checkIn, checkOut);
     }
@@ -169,30 +164,44 @@ public class HotelQueryService {
         }
         List<LocalDate> nights = StayDates.nights(effectiveIn, effectiveOut);
 
-        HotelStaticSnapshot staticSnap = hotelReadCache.getStatic(hotelId).orElse(null);
-        if (staticSnap != null && staticSnap.isMissing()) {
+        HotelStaticSnapshot staticSnap = cacheMutex.loadThrough(
+                HotelCacheKeys.lockStatic(hotelId),
+                () -> hotelReadCache.getStatic(hotelId).orElse(null),
+                () -> {
+                    try {
+                        return loadStatic(hotelId);
+                    } catch (BizException ex) {
+                        if (ex.getResultCode() == ResultCode.NOT_FOUND) {
+                            return HotelStaticSnapshot.builder().id(hotelId).missing(true).build();
+                        }
+                        throw ex;
+                    }
+                },
+                snap -> {
+                    if (snap != null && snap.isMissing()) {
+                        hotelReadCache.putStaticMissing(hotelId);
+                    } else {
+                        hotelReadCache.putStatic(snap);
+                    }
+                });
+        if (staticSnap == null || staticSnap.isMissing()) {
             throw new BizException(ResultCode.NOT_FOUND, "酒店不存在");
-        }
-        if (staticSnap == null) {
-            try {
-                staticSnap = loadStatic(hotelId);
-                hotelReadCache.putStatic(staticSnap);
-            } catch (BizException ex) {
-                if (ex.getResultCode() == ResultCode.NOT_FOUND) {
-                    hotelReadCache.putStaticMissing(hotelId);
-                }
-                throw ex;
-            }
         }
 
         List<HotelDetailResponse.RoomTypeView> views = new ArrayList<>();
         List<HotelStaticSnapshot.RoomTypeStatic> types = staticSnap.getRoomTypes() == null
                 ? List.of() : staticSnap.getRoomTypes();
         for (HotelStaticSnapshot.RoomTypeStatic type : types) {
-            CalendarSnapshot cal = hotelReadCache.getCalendar(type.getId(), effectiveIn, effectiveOut).orElse(null);
+            final Long roomTypeId = type.getId();
+            final LocalDate calIn = effectiveIn;
+            final LocalDate calOut = effectiveOut;
+            CalendarSnapshot cal = cacheMutex.loadThrough(
+                    HotelCacheKeys.lockCalendar(roomTypeId, calIn, calOut),
+                    () -> hotelReadCache.getCalendar(roomTypeId, calIn, calOut).orElse(null),
+                    () -> loadCalendar(roomTypeId, nights),
+                    snap -> hotelReadCache.putCalendar(snap, calIn, calOut));
             if (cal == null) {
-                cal = loadCalendar(type.getId(), nights);
-                hotelReadCache.putCalendar(cal, effectiveIn, effectiveOut);
+                cal = CalendarSnapshot.builder().roomTypeId(roomTypeId).nights(List.of()).build();
             }
             List<HotelDetailResponse.NightPrice> calendar = cal.getNights() == null ? List.of() : cal.getNights().stream()
                     .map(n -> HotelDetailResponse.NightPrice.builder()
@@ -319,5 +328,14 @@ public class HotelQueryService {
                 .map(RoomInventory::getPrice)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+    private PageResponse<HotelCardResponse> markSearchCache(PageResponse<HotelCardResponse> hit) {
+        if (hit == null) {
+            return null;
+        }
+        if (hit.getRecords() != null) {
+            hit.getRecords().forEach(card -> card.setSearchSource("CACHE"));
+        }
+        return hit;
     }
 }
