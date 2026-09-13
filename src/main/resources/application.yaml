@@ -83,6 +83,7 @@ hotel:
     quote-ttl-seconds: 30
     calendar-ttl-seconds: 20
     compare-ttl-seconds: 86400
+    null-object-ttl-seconds: 120
 
 logging:
   pattern:

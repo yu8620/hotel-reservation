@@ -44,5 +44,7 @@ public class HotelProperties {
         private int quoteTtlSeconds = 30;
         private int calendarTtlSeconds = 20;
         private int compareTtlSeconds = 86400;
+        /** TTL for cached null-objects (missing hotel). */
+        private int nullObjectTtlSeconds = 120;
     }
 }

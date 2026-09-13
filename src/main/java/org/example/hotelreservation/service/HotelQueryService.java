@@ -170,9 +170,19 @@ public class HotelQueryService {
         List<LocalDate> nights = StayDates.nights(effectiveIn, effectiveOut);
 
         HotelStaticSnapshot staticSnap = hotelReadCache.getStatic(hotelId).orElse(null);
+        if (staticSnap != null && staticSnap.isMissing()) {
+            throw new BizException(ResultCode.NOT_FOUND, "酒店不存在");
+        }
         if (staticSnap == null) {
-            staticSnap = loadStatic(hotelId);
-            hotelReadCache.putStatic(staticSnap);
+            try {
+                staticSnap = loadStatic(hotelId);
+                hotelReadCache.putStatic(staticSnap);
+            } catch (BizException ex) {
+                if (ex.getResultCode() == ResultCode.NOT_FOUND) {
+                    hotelReadCache.putStaticMissing(hotelId);
+                }
+                throw ex;
+            }
         }
 
         List<HotelDetailResponse.RoomTypeView> views = new ArrayList<>();

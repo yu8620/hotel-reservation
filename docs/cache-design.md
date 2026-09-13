@@ -238,3 +238,21 @@ hotel:
 |------|------|
 | 2026-09-12 | 初稿：分层 key、读写路径、失效策略、实施顺序 |
 | 2026-09-12 | 代码落地 P0–P4：cache 分层（Keys / Snapshot / ReadCache）、Query 组装、Order 失效；读写与库存扣减解耦 |
+
+## 11. 防穿透：缓存空对象
+
+> 状态：已落地（详情 L2）；布隆过滤器仍不做
+
+对「缓存和库都不存在」的请求，第一次回源后写入**短 TTL 空标记**，后续直接命中缓存，避免反复打 MySQL。
+
+| 场景 | 做法 | TTL |
+|------|------|-----|
+| 详情：酒店 id 不存在 | `hr:hotel:static:v1:{id}` 存 `{ "id":..., "missing": true }` | `hotel.cache.null-object-ttl-seconds`（默认 **120s**） |
+| 搜索无结果 | 空 `PageResponse` 仍走 L1（45s） | 与 L1 相同 |
+| 报价无可用房 | 仍写 L3（`availableRoomTypes=[]`） | 30s |
+
+命中 `missing=true` 时直接返回 404，**不再查库**。真实酒店写入时 `missing=false`，TTL 仍为 30min。
+
+不在此阶段上布隆过滤器（酒店量小，空对象足够讲清穿透）。
+
+| 2026-09-13 | 防穿透：详情 L2 缓存空对象（missing + 短 TTL），未上布隆 |

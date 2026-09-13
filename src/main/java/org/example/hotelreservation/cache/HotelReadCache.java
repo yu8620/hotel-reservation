@@ -51,7 +51,18 @@ public class HotelReadCache {
         if (snapshot == null || snapshot.getId() == null) {
             return;
         }
-        write(HotelCacheKeys.hotelStatic(snapshot.getId()), snapshot, properties.getCache().getStaticTtlSeconds());
+        int ttl = snapshot.isMissing()
+                ? properties.getCache().getNullObjectTtlSeconds()
+                : properties.getCache().getStaticTtlSeconds();
+        write(HotelCacheKeys.hotelStatic(snapshot.getId()), snapshot, ttl);
+    }
+
+    /** Cache a short-lived null-object so repeated misses do not hit MySQL. */
+    public void putStaticMissing(Long hotelId) {
+        if (hotelId == null) {
+            return;
+        }
+        putStatic(HotelStaticSnapshot.builder().id(hotelId).missing(true).build());
     }
 
     public Map<Long, HotelQuoteSnapshot> mgetQuotes(List<Long> hotelIds, LocalDate checkIn, LocalDate checkOut, int rooms) {
