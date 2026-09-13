@@ -24,7 +24,22 @@ Windows：`mvnw.cmd spring-boot:run`
 | demo | demo123 | 用户 |
 | admin | admin123 | 管理员 |
 
-压测房型：`南昌万达嘉华酒店` 的 **豪华大床房**（`room_type_id = 1`），总共 **3 间**。用 20 个线程抢同一晚，成功订单应恰好 3 笔，库存不为负。
+压测房型：`南昌万达嘉华酒店` 的 **豪华大床房**（`room_type_id = 1`），总共 **3 间**。
+
+### 本地并发压测结果（已跑通）
+
+| 时间 | 并发 | 库存 | 成功单 | 售罄响应 | MySQL available | Redis | 超卖 |
+|------|------|------|--------|----------|-----------------|-------|------|
+| 2026-09-13 | 50 | 3 | **3** | 47 | 0 | 0 | 否 |
+| 2026-09-13 | 100 | 3 | **3** | 97 | 0 | 0 | 否 |
+
+复现（需 `http://localhost:8080` 已启动）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\loadtest-oversell.ps1 -Concurrency 100 -Stock 3 -RoomTypeId 1
+```
+
+明细见 [docs/loadtest-oversell-latest.json](docs/loadtest-oversell-latest.json)。
 
 ## 面试时先画这张图
 
@@ -89,15 +104,16 @@ catch 里 `restoreRedis`。下单写库用 `TransactionTemplate` 包住「扣 My
 
 `requestId` 有唯一索引，重复提交返回同一订单。
 
-## 简历可写的四条（有压测数据后再填数字）
+## 简历可写的四条
 
-1. 设计「房型 + 日期」日历库存，入住区间通过 Redis + Lua 原子扣减，避免并发超订和跨日部分成功。  
+1. 设计「房型 + 日期」日历库存，入住区间 Redis + Lua 原子扣减；本地 **100 并发抢 3 间** 成功单恰好 3、MySQL/Redis 库存归零、零超卖。  
 2. Elasticsearch 做酒店关键词 / 城市 / 星级 / 地理位置召回，房态与 ES 解耦，先召回再校验日历。  
 3. RabbitMQ TTL + 死信处理未支付关单并回补房态；支付回调按订单状态 CAS 幂等。  
 4. Redis 宕机时降级 MySQL 条件更新；MQ 丢失时用定时任务补偿关单。
 
-不要写没跑过的 QPS。压测建议用 JMeter 打 `POST /api/orders`，同一 `roomTypeId=1`、同一入住日期、不同 `requestId`。
+压测脚本：`scripts/loadtest-oversell.ps1`（勿编造未跑过的 QPS）。
 
 ## 设计文档
 
-- 比价读路径 Redis 缓存（含空对象防穿透、TTL 抖动防雪崩）：[docs/cache-design.md](docs/cache-design.md)
+- 比价读路径 Redis 缓存（含空对象防穿透、TTL 抖动防雪崩、互斥防击穿）：[docs/cache-design.md](docs/cache-design.md)
+- 库存并发压测结果：[docs/loadtest-oversell-latest.json](docs/loadtest-oversell-latest.json)

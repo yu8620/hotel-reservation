@@ -1,0 +1,21 @@
+﻿{
+    "at":  "2026-09-13T15:40:42",
+    "baseUrl":  "http://localhost:8080",
+    "roomTypeId":  1,
+    "roomName":  "豪华大床房 (万达嘉华)",
+    "checkIn":  "2026-11-12",
+    "checkOut":  "2026-11-13",
+    "stock":  3,
+    "concurrency":  50,
+    "roomsPerOrder":  1,
+    "elapsedMs":  280,
+    "successOrders":  3,
+    "soldOutResponses":  47,
+    "otherFailures":  0,
+    "mysqlAvailableAfter":  0,
+    "redisKey":  "inv:1:20261112",
+    "redisAvailableAfter":  "0",
+    "bookingOrdersOnDate":  "3",
+    "oversellDetected":  false,
+    "pass":  true
+}

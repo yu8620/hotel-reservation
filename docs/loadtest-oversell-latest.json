@@ -1,0 +1,22 @@
+{
+  "at": "2026-09-13T15:40:49",
+  "baseUrl": "http://localhost:8080",
+  "roomTypeId": 1,
+  "roomName": "豪华大床房 (南昌万达嘉华酒店)",
+  "checkIn": "2026-11-20",
+  "checkOut": "2026-11-21",
+  "stock": 3,
+  "concurrency": 100,
+  "roomsPerOrder": 1,
+  "elapsedMs": 262,
+  "successOrders": 3,
+  "soldOutResponses": 97,
+  "otherFailures": 0,
+  "mysqlAvailableAfter": 0,
+  "redisKey": "inv:1:20261120",
+  "redisAvailableAfter": "0",
+  "bookingOrdersOnDate": "3",
+  "oversellDetected": false,
+  "pass": true,
+  "method": "PowerShell runspace pool concurrent POST /api/orders; unique requestId; Lua+MySQL deduct"
+}
