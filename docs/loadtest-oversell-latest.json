@@ -18,5 +18,17 @@
   "bookingOrdersOnDate": "3",
   "oversellDetected": false,
   "pass": true,
-  "method": "PowerShell runspace pool concurrent POST /api/orders; unique requestId; Lua+MySQL deduct"
+  "method": "PowerShell runspace pool; concurrent POST /api/orders; unique requestId each; reset MySQL available then admin reload Redis; assert success==stock and both stores >=0",
+  "alsoRan": [
+    {
+      "at": "2026-09-13T15:40:42",
+      "concurrency": 50,
+      "stock": 3,
+      "successOrders": 3,
+      "soldOutResponses": 47,
+      "elapsedMs": 280,
+      "checkIn": "2026-11-12",
+      "pass": true
+    }
+  ]
 }

@@ -116,4 +116,4 @@ catch 里 `restoreRedis`。下单写库用 `TransactionTemplate` 包住「扣 My
 ## 设计文档
 
 - 比价读路径 Redis 缓存（含空对象防穿透、TTL 抖动防雪崩、互斥防击穿）：[docs/cache-design.md](docs/cache-design.md)
-- 库存并发压测结果：[docs/loadtest-oversell-latest.json](docs/loadtest-oversell-latest.json)
+- 库存并发压测（方法 + 数据表）：[docs/loadtest-oversell.md](docs/loadtest-oversell.md)（JSON：[loadtest-oversell-latest.json](docs/loadtest-oversell-latest.json)）

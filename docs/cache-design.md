@@ -311,3 +311,6 @@ miss → SET lock NX EX lock-ttl
 解锁用 Lua 比对 token，避免误删别人的锁。订单扣减路径仍走 Lua 库存，**不**走这套读缓存互斥。
 
 | 2026-09-13 | 击穿：Redis SET NX 互斥重建（CacheMutex） |
+
+> 说明：读缓存压测不在此文档；库存防超卖并发数据见 [loadtest-oversell.md](./loadtest-oversell.md)。
+
