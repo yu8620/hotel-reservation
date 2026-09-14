@@ -20,6 +20,9 @@ import java.util.function.Supplier;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+/**
+ * 缓存击穿互斥：热点 key miss 时仅持锁者回源，其余短暂等待再读缓存。
+ */
 public class CacheMutex {
 
     private static final DefaultRedisScript<Long> UNLOCK_SCRIPT = new DefaultRedisScript<>(

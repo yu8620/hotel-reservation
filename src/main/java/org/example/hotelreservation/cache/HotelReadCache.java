@@ -26,6 +26,9 @@ import java.util.concurrent.ThreadLocalRandom;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+/**
+ * 比价读缓存网关：分层 Cache Aside 的读写与失效；不参与下单扣减。
+ */
 public class HotelReadCache {
 
     private final StringRedisTemplate stringRedisTemplate;

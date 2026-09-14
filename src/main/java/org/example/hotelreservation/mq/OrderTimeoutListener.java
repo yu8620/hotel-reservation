@@ -10,6 +10,9 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+/**
+ * 消费 close 队列：到期后尝试关闭仍未支付的订单。
+ */
 public class OrderTimeoutListener {
 
     private final OrderService orderService;

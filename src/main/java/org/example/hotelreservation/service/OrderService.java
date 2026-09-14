@@ -37,6 +37,12 @@ import java.util.concurrent.ThreadLocalRandom;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+/**
+ * 订单应用服务：下单预占库存、支付/取消状态机、超时关单回补。
+ * <p>库存扣减委托 {@link org.example.hotelreservation.inventory.InventoryService}；
+ * 读缓存失效委托 {@link org.example.hotelreservation.cache.HotelReadCache}；
+ * 延迟关单委托 MQ 组件。
+ */
 public class OrderService {
 
     private final BookingOrderMapper orderMapper;

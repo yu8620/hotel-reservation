@@ -8,6 +8,9 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
+/**
+ * 下单后投递延迟关单消息（消息 TTL = 支付超时时间）。
+ */
 public class OrderTimeoutPublisher {
 
     private final RabbitTemplate rabbitTemplate;

@@ -12,6 +12,9 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+/**
+ * 定时补偿：扫描过期未支付订单；MQ 为主路径，本类为兜底。
+ */
 public class OrderTimeoutScheduler {
 
     private final OrderService orderService;

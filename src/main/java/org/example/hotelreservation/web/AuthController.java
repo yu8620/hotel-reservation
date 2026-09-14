@@ -15,6 +15,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+/**
+ * 认证接口层：注册与登录。
+ */
 public class AuthController {
 
     private final AuthService authService;

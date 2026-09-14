@@ -16,6 +16,9 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+/**
+ * 认证应用服务：注册、登录与 JWT 签发。
+ */
 public class AuthService {
 
     private final UserMapper userMapper;

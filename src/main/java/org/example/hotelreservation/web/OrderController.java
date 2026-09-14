@@ -19,6 +19,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
+/**
+ * 订单接口层：仅转发到 {@link org.example.hotelreservation.service.OrderService}。
+ */
 public class OrderController {
 
     private final OrderService orderService;

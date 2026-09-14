@@ -19,6 +19,9 @@ import java.time.LocalDate;
 @RestController
 @RequestMapping("/api/hotels")
 @RequiredArgsConstructor
+/**
+ * 酒店查询接口层：搜索与详情。
+ */
 public class HotelController {
 
     private final HotelQueryService hotelQueryService;
