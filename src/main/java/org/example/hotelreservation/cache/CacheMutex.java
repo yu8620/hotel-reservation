@@ -62,6 +62,7 @@ public class CacheMutex {
             return;
         }
         try {
+            // ===== 校验 value 再删，避免误删别人的锁 =====
             stringRedisTemplate.execute(UNLOCK_SCRIPT, Collections.singletonList(lockKey), token);
         } catch (Exception ex) {
             log.warn("unlock {} failed: {}", lockKey, ex.getMessage());
@@ -71,7 +72,11 @@ public class CacheMutex {
     /**
      * Rebuild under mutex: double-check cache after acquiring lock / after wait.
      */
+    /**
+     * 防击穿主流程：miss → 抢锁 → 双检 → 回源写缓存；抢不到则等待再读，最后兜底回源。
+     */
     public <T> T loadThrough(String lockKey, Supplier<T> cacheGet, Callable<T> loader, java.util.function.Consumer<T> cachePut) {
+        // ===== 1. 先读缓存，命中直接返回 =====
         T hit = cacheGet.get();
         if (hit != null) {
             return hit;
@@ -79,6 +84,7 @@ public class CacheMutex {
         boolean locked = tryLock(lockKey);
         try {
             if (locked) {
+                // ===== 2. 持锁者双检，避免并发下重复回源 =====
                 hit = cacheGet.get();
                 if (hit != null) {
                     return hit;
@@ -89,7 +95,7 @@ public class CacheMutex {
                 }
                 return loaded;
             }
-            // someone else is rebuilding — wait and re-read
+            // ===== 3. 未抢到锁：短暂等待，期望读到持锁者写入的结果 =====
             int waitMs = waitMillis();
             int retries = Math.max(1, properties.getCache().getLockWaitRetries());
             for (int i = 0; i < retries; i++) {
@@ -99,7 +105,7 @@ public class CacheMutex {
                     return hit;
                 }
             }
-            // fallback: rebuild without lock to avoid hanging the request
+            // ===== 4. 兜底：为免一直挂起，无锁回源一次 =====
             T loaded = loader.call();
             if (loaded != null) {
                 cachePut.accept(loaded);

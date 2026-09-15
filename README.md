@@ -121,3 +121,7 @@ catch 里 `restoreRedis`。下单写库用 `TransactionTemplate` 包住「扣 My
 - 比价读路径 Redis 缓存（含空对象防穿透、TTL 抖动防雪崩、互斥防击穿）：[docs/cache-design.md](docs/cache-design.md)
 - 分层与依赖（阿里手册风格）：[docs/architecture-layers.md](docs/architecture-layers.md)
 - 库存并发压测（方法 + 数据表）：[docs/loadtest-oversell.md](docs/loadtest-oversell.md)（JSON：[loadtest-oversell-latest.json](docs/loadtest-oversell-latest.json)）
+
+- 日历库存与 Lua 扣减：[docs/inventory-lua.md](docs/inventory-lua.md)
+- 下单/支付/关单一致性：[docs/order-consistency.md](docs/order-consistency.md)
+

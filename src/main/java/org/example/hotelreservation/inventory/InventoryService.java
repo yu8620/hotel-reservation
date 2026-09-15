@@ -47,6 +47,7 @@ public class InventoryService {
     private final DefaultRedisScript<Long> deductScript = new DefaultRedisScript<>();
     private final DefaultRedisScript<Long> restoreScript = new DefaultRedisScript<>();
 
+    // ===== 加载 classpath 下扣减/回补 Lua，启动时绑定到 RedisScript =====
     @PostConstruct
     void initScripts() {
         deductScript.setScriptSource(new ResourceScriptSource(new ClassPathResource("lua/deduct_inventory.lua")));
@@ -84,19 +85,23 @@ public class InventoryService {
      */
     public boolean tryDeductRedis(Long roomTypeId, List<LocalDate> nights, int rooms) {
         try {
+            // ===== 先预热 key，再 Lua：先校验所有晚再统一 decr =====
             warmUp(roomTypeId, nights);
             Long ok = redis.execute(deductScript, keys(roomTypeId, nights), String.valueOf(rooms));
             return ok != null && ok == 1L;
         } catch (BizException ex) {
             throw ex;
         } catch (Exception ex) {
+            // ===== 失败关闭：不降级 MySQL 扣减，宁可暂时下不了单 =====
             log.warn("redis deduct unavailable, reject order without mysql fallback: {}", ex.getMessage());
             throw new BizException(ResultCode.INVENTORY_UNAVAILABLE);
         }
     }
 
+    /** 下单失败或关单时回补 Redis；失败只打日志，可人工 reload。 */
     public void restoreRedis(Long roomTypeId, List<LocalDate> nights, int rooms) {
         try {
+            // ===== Lua 回补与扣减对称，按晚 incr =====
             redis.execute(restoreScript, keys(roomTypeId, nights), String.valueOf(rooms));
         } catch (Exception ex) {
             log.warn("redis restore failed, admin reload required: {}", ex.getMessage());
@@ -123,6 +128,10 @@ public class InventoryService {
         }
     }
 
+    /**
+     * 报价用：取入住区间内最小可用间数。
+     * 读路径允许降级 MySQL；与写路径「失败关闭」策略不同（面试要能对比）。
+     */
     public int minAvailable(Long roomTypeId, List<LocalDate> nights) {
         try {
             warmUp(roomTypeId, nights);
@@ -132,6 +141,7 @@ public class InventoryService {
             }
             return values.stream().mapToInt(Integer::parseInt).min().orElse(0);
         } catch (Exception ex) {
+            // ===== 读可降级 =====
             return minFromDb(roomTypeId, nights);
         }
     }

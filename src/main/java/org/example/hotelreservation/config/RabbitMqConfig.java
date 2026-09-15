@@ -9,8 +9,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * 未支付订单超时：消息发到 delay 队列，到期后死信转到 close 队列被消费。
- * 不依赖 rabbitmq_delayed_message 插件，面试可以画 TTL + DLX。
+ * 未支付订单超时拓扑：delay 队列（消息 TTL）→ 死信 → close 队列。
+ * <p>不依赖 rabbitmq_delayed_message 插件，面试可画：业务交换机 + TTL + DLX。
  */
 @Configuration
 public class RabbitMqConfig {
@@ -23,11 +23,13 @@ public class RabbitMqConfig {
 
     @Bean
     public DirectExchange orderExchange() {
+        // ===== 持久化直连交换机，delay/close 共用 =====
         return new DirectExchange(EXCHANGE, true, false);
     }
 
     @Bean
     public Queue delayQueue() {
+        // ===== 延迟队列：消息过期后死信到 CLOSE_RK =====
         return QueueBuilder.durable(DELAY_QUEUE)
                 .deadLetterExchange(EXCHANGE)
                 .deadLetterRoutingKey(CLOSE_RK)
@@ -36,6 +38,7 @@ public class RabbitMqConfig {
 
     @Bean
     public Queue closeQueue() {
+        // ===== 真正被 Listener 消费的关单队列 =====
         return QueueBuilder.durable(CLOSE_QUEUE).build();
     }
 

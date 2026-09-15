@@ -20,15 +20,13 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Redis I/O for compare/read path only.
- * No ES/DB access and no inventory mutation — keep layers decoupled.
+ * 比价读缓存网关（Cache Aside）。
+ * <p>只服务搜索/静态/报价/日历读路径；不参与 Lua 扣库存，下单成功后通过 evict 精确失效。
+ * 面试对应：穿透（空对象短 TTL）、雪崩（TTL 抖动）、与扣减路径解耦。
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-/**
- * 比价读缓存网关：分层 Cache Aside 的读写与失效；不参与下单扣减。
- */
 public class HotelReadCache {
 
     private final StringRedisTemplate stringRedisTemplate;
@@ -61,7 +59,7 @@ public class HotelReadCache {
         write(HotelCacheKeys.hotelStatic(snapshot.getId()), snapshot, ttl);
     }
 
-    /** Cache a short-lived null-object so repeated misses do not hit MySQL. */
+    /** 防穿透：缓存短 TTL 空对象，避免假 hotelId 反复打 MySQL。 */
     public void putStaticMissing(Long hotelId) {
         if (hotelId == null) {
             return;
@@ -120,12 +118,16 @@ public class HotelReadCache {
                 properties.getCache().getCalendarTtlSeconds());
     }
 
-    /** Evict quote + calendar after inventory write paths. */
+    /**
+     * 下单/关单后精确失效报价与日历缓存，避免读到旧库存。
+     * 不删静态酒店信息（与库存无关）。
+     */
     public void evictAfterInventoryChange(Long hotelId, Long roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms) {
         if (!enabled()) {
             return;
         }
         try {
+            // ===== 组装需要删除的 quote/calendar key =====
             List<String> keys = new ArrayList<>();
             if (hotelId != null && checkIn != null && checkOut != null) {
                 keys.add(HotelCacheKeys.quote(hotelId, checkIn, checkOut, rooms));
@@ -180,7 +182,11 @@ public class HotelReadCache {
         }
     }
 
+    /**
+     * 写入缓存：TTL 加随机抖动，降低同一时刻大批 key 一起过期（防雪崩）。
+     */
     private void write(String key, Object value, int ttlSeconds) {
+        // ===== 序列化并 SET，TTL = 配置值 ± 抖动 =====
         if (!enabled() || value == null || ttlSeconds <= 0) {
             return;
         }
@@ -192,10 +198,7 @@ public class HotelReadCache {
         }
     }
 
-    /**
-     * Spread expirations: actual TTL = base + random[0, ttlJitterSeconds].
-     * Avoids many keys vanishing in the same second (cache avalanche).
-     */
+    /** 防雪崩：实际 TTL = 基础值 + [0, jitter] 随机秒。 */
     private int withJitter(int baseSeconds) {
         int jitter = properties.getCache().getTtlJitterSeconds();
         if (jitter <= 0) {

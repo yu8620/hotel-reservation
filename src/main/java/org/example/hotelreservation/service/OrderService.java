@@ -55,12 +55,20 @@ public class OrderService {
     private final TransactionTemplate transactionTemplate;
     private final HotelReadCache hotelReadCache;
 
+    /**
+     * 创建订单（面试主路径）。
+     * 顺序：requestId 幂等 → Lua 预扣 → 事务内 MySQL 扣减+落单 → 发延迟关单 → 失效读缓存。
+     * 任一失败要回补 Redis，避免「Redis 少了、订单没有」。
+     */
     public OrderResponse create(Long userId, CreateOrderRequest request) {
+        // ===== 1. 发送幂等：相同 requestId 直接返回已有订单 =====
         BookingOrder existed = orderMapper.selectOne(new LambdaQueryWrapper<BookingOrder>()
                 .eq(BookingOrder::getRequestId, request.getRequestId()));
         if (existed != null) {
             return toResponse(existed);
         }
+
+        // ===== 2. 展开入住区间为多晚日历，并校验房型/库存行齐全 =====
         List<LocalDate> nights = StayDates.nights(request.getCheckIn(), request.getCheckOut());
         RoomType roomType = roomTypeMapper.selectById(request.getRoomTypeId());
         if (roomType == null) {
@@ -71,14 +79,19 @@ public class OrderService {
         if (rows.size() != nights.size()) {
             throw new BizException(ResultCode.SOLD_OUT, "所选日期未开放预订");
         }
+
+        // ===== 3. Redis Lua 预扣：跨晚全有或全无；Redis 挂则失败关闭（不降级 MySQL） =====
         boolean redisOk = inventoryService.tryDeductRedis(roomType.getId(), nights, rooms);
         if (!redisOk) {
             throw new BizException(ResultCode.SOLD_OUT);
         }
+
+        // ===== 4. 事务落单：MySQL 条件扣减 + 写订单；失败必须 restoreRedis =====
         BookingOrder order;
         try {
             order = transactionTemplate.execute(status -> persistOrder(userId, request, roomType, nights, rows));
         } catch (DuplicateKeyException duplicate) {
+            // 并发下唯一键冲突：回补 Redis，再按 requestId 读已有单
             inventoryService.restoreRedis(roomType.getId(), nights, rooms);
             BookingOrder again = orderMapper.selectOne(new LambdaQueryWrapper<BookingOrder>()
                     .eq(BookingOrder::getRequestId, request.getRequestId()));
@@ -90,18 +103,27 @@ public class OrderService {
             inventoryService.restoreRedis(roomType.getId(), nights, rooms);
             throw ex;
         }
+
+        // ===== 5. 投递 TTL 延迟关单（失败可依赖定时补偿，不阻断下单） =====
         try {
             timeoutPublisher.sendDelayClose(order.getOrderNo());
         } catch (Exception ex) {
             log.warn("delay message failed, scheduler will close order {}: {}", order.getOrderNo(), ex.getMessage());
         }
+
+        // ===== 6. 精确失效比价读缓存，避免脏报价 =====
         hotelReadCache.evictAfterInventoryChange(order.getHotelId(), order.getRoomTypeId(),
                 order.getCheckIn(), order.getCheckOut(), order.getRooms());
         return toResponse(order);
     }
 
+    /**
+     * 事务内持久化：MySQL 权威扣减 → 生成待支付订单 → 写入每晚明细。
+     * 注意：支付阶段不再扣库存，这里已经完成 hold。
+     */
     private BookingOrder persistOrder(Long userId, CreateOrderRequest request, RoomType roomType,
                                       List<LocalDate> nights, List<RoomInventory> rows) {
+        // ===== MySQL available >= n 条件更新，任一夜失败则整单回滚 =====
         inventoryService.deductMysql(roomType.getId(), nights, request.getRooms());
         BigDecimal amount = rows.stream()
                 .map(r -> r.getPrice().multiply(BigDecimal.valueOf(request.getRooms())))
@@ -132,14 +154,20 @@ public class OrderService {
         return order;
     }
 
+    /**
+     * 支付：只做状态机 CAS（PENDING_PAY → CONFIRMED），不再扣库存。
+     * 与超时关单并发时，CAS 失败则查最新状态，已确认则幂等返回。
+     */
     public OrderResponse pay(Long userId, Long orderId) {
         BookingOrder order = requireOwned(userId, orderId);
+        // ===== 幂等：已支付直接返回 =====
         if (order.getStatus() == OrderStatus.CONFIRMED) {
             return toResponse(order);
         }
         if (!order.getStatus().canTransitTo(OrderStatus.CONFIRMED)) {
             throw new BizException(ResultCode.ORDER_STATUS_INVALID, "当前状态不能支付");
         }
+        // ===== CAS：只有仍是待支付才能改成已确认 =====
         int cas = orderMapper.casStatus(order.getId(), OrderStatus.PENDING_PAY, OrderStatus.CONFIRMED, null, null);
         if (cas != 1) {
             BookingOrder latest = orderMapper.selectById(orderId);
@@ -163,8 +191,13 @@ public class OrderService {
         throw new BizException(ResultCode.ORDER_STATUS_INVALID, "当前状态不能取消");
     }
 
+    /**
+     * MQ 延迟消息回调：仅关闭仍未支付的订单。
+     * 若用户已支付，此处直接空转（消息到达 ≠ 必须关单）。
+     */
     public void closeIfUnpaid(String orderNo) {
         BookingOrder order = orderMapper.selectOne(new LambdaQueryWrapper<BookingOrder>().eq(BookingOrder::getOrderNo, orderNo));
+        // ===== 幂等空转：已确认/已取消/已关闭都不处理 =====
         if (order == null || order.getStatus() != OrderStatus.PENDING_PAY) {
             return;
         }
@@ -192,20 +225,27 @@ public class OrderService {
         return toResponse(requireOwned(userId, orderId));
     }
 
+    /**
+     * 关单/取消共用：CAS 改状态成功后才回补 MySQL+Redis 库存并失效缓存。
+     * CAS 失败说明别人已改状态，避免重复回补导致超卖反向（库存虚高）。
+     */
     private OrderResponse closeOrCancel(BookingOrder order, OrderStatus next, String reason, BigDecimal penalty) {
         if (!order.getStatus().canTransitTo(next)) {
             return toResponse(order);
         }
         List<LocalDate> nights = StayDates.occupiedNights(order.getCheckIn(), order.getCheckOut());
         Boolean changed = transactionTemplate.execute(status -> {
+            // ===== 1. CAS 推进状态 =====
             int cas = orderMapper.casStatus(order.getId(), order.getStatus(), next, reason, penalty);
             if (cas != 1) {
                 return false;
             }
+            // ===== 2. 事务内回补 MySQL 日历库存 =====
             inventoryService.restoreMysql(order.getRoomTypeId(), nights, order.getRooms());
             return true;
         });
         if (Boolean.TRUE.equals(changed)) {
+            // ===== 3. 事务外回补 Redis，并失效读缓存 =====
             inventoryService.restoreRedis(order.getRoomTypeId(), nights, order.getRooms());
             hotelReadCache.evictAfterInventoryChange(order.getHotelId(), order.getRoomTypeId(),
                     order.getCheckIn(), order.getCheckOut(), order.getRooms());
