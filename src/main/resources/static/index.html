@@ -138,6 +138,7 @@
     <nav>
       <a onclick="show('search')">找酒店</a>
       <a onclick="showOrders()">我的订单</a>
+      <a onclick="showNotes()">探店笔记</a>
       <a onclick="show('auth')">登录</a>
       <span id="who" class="hint"></span>
     </nav>
@@ -160,6 +161,7 @@
     </section>
     <section id="view-detail" class="panel"></section>
     <section id="view-orders" class="panel"></section>
+    <section id="view-notes" class="panel"></section>
     <section id="view-auth" class="panel">
       <h2>登录 / 注册</h2>
       <div class="row">
@@ -180,7 +182,7 @@
       return h;
     }
     function show(name) {
-      ['search','detail','orders','auth'].forEach(v => {
+      ['search','detail','orders','notes','auth'].forEach(v => {
         const el = document.getElementById('view-' + v);
         if (!el) return;
         if (v === 'search') el.style.display = name === 'search' ? 'block' : 'none';
@@ -279,7 +281,88 @@
       localStorage.setItem('qijuToken', token);
       document.getElementById('who').textContent = json.data.username;
     }
-    async function showOrders() {
+    
+async function showNotes() {
+  show('notes');
+  const box = document.getElementById('view-notes');
+  box.innerHTML = '<p class="hint">加载中…</p>';
+  try {
+    const [feedRes, blogRes] = await Promise.all([
+      fetch(api + '/api/notes/feed?page=1&size=20', { headers: headers() }),
+      fetch(api + '/api/social/bloggers', { headers: headers() })
+    ]);
+    const feed = await feedRes.json();
+    const blogs = await blogRes.json();
+    const notes = (feed.data && feed.data.records) || [];
+    const bloggers = blogs.data || [];
+    box.innerHTML = `
+      <h2>探店笔记</h2>
+      <p class="hint">参考黑马点评：关注博主 · 点赞评分评论。演示账号 traveler / foodie（demo123）</p>
+      <h3>旅居博主</h3>
+      <div class="grid">${bloggers.map(b => `
+        <article class="card">
+          <strong>${b.nickname || b.username}</strong>
+          <p class="hint">${b.bio || ''}</p>
+          <p class="hint">粉丝 ${b.followerCount} · 关注 ${b.followingCount}${b.mutualFollow ? ' · 互关' : ''}</p>
+          ${token ? (b.followedByMe
+            ? `<button class="ghost" onclick="unfollowUser(${b.userId})">取消关注</button>`
+            : `<button onclick="followUser(${b.userId})">关注</button>`) : '<span class="hint">登录后可关注</span>'}
+        </article>`).join('') || '<p class="hint">暂无博主，启动后会自动种子</p>'}
+      </div>
+      <h3 style="margin-top:24px">最新笔记</h3>
+      <div class="grid">${notes.map(n => `
+        <article class="card">
+          <strong>${n.title}</strong>
+          <p class="hint">${n.authorNickname || n.authorName} · ${n.hotelName || ''} · 赞 ${n.likeCount} · 评 ${n.commentCount}${n.avgReaderScore != null ? ' · 均分 ' + n.avgReaderScore : ''}</p>
+          <p>${(n.content || '').slice(0, 120)}${(n.content||'').length>120?'…':''}</p>
+          ${token ? `<button onclick="likeNote(${n.id})">${n.likedByMe ? '取消赞' : '点赞'}</button>
+            <button class="ghost" onclick="rateNote(${n.id})">评分</button>
+            <button class="ghost" onclick="commentNote(${n.id})">评论</button>` : ''}
+        </article>`).join('') || '<p class="hint">暂无笔记</p>'}
+      </div>`;
+  } catch (e) {
+    box.innerHTML = '<p>加载失败：' + e + '</p>';
+  }
+}
+async function followUser(id) {
+  const res = await fetch(api + '/api/social/follow', { method: 'POST', headers: headers(), body: JSON.stringify({ followeeId: id }) });
+  const json = await res.json();
+  if (json.code !== 0) { alert(json.message || '失败'); return; }
+  showNotes();
+}
+async function unfollowUser(id) {
+  const res = await fetch(api + '/api/social/follow/' + id, { method: 'DELETE', headers: headers() });
+  const json = await res.json();
+  if (json.code !== 0) { alert(json.message || '失败'); return; }
+  showNotes();
+}
+async function likeNote(id) {
+  const n = await (await fetch(api + '/api/notes/' + id, { headers: headers() })).json();
+  const liked = n.data && n.data.likedByMe;
+  const res = await fetch(api + '/api/notes/' + id + '/like', { method: liked ? 'DELETE' : 'POST', headers: headers() });
+  const json = await res.json();
+  if (json.code !== 0) { alert(json.message || '失败'); return; }
+  showNotes();
+}
+async function rateNote(id) {
+  const score = prompt('给这篇笔记打分（1-5）', '5');
+  if (!score) return;
+  const res = await fetch(api + '/api/notes/' + id + '/rate', { method: 'POST', headers: headers(), body: JSON.stringify({ score: Number(score) }) });
+  const json = await res.json();
+  if (json.code !== 0) { alert(json.message || '失败'); return; }
+  showNotes();
+}
+async function commentNote(id) {
+  const content = prompt('写一条评论');
+  if (!content) return;
+  const res = await fetch(api + '/api/notes/' + id + '/comments', { method: 'POST', headers: headers(), body: JSON.stringify({ content }) });
+  const json = await res.json();
+  if (json.code !== 0) { alert(json.message || '失败'); return; }
+  alert('评论成功');
+  showNotes();
+}
+
+async function showOrders() {
       show('orders');
       if (!token) { document.getElementById('view-orders').innerHTML = '<p>请先登录</p>'; return; }
       const res = await fetch(api + '/api/orders/mine', { headers: headers() });

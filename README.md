@@ -107,6 +107,21 @@ catch 里 `restoreRedis`。下单写库用 `TransactionTemplate` 包住「扣 My
 
 `requestId` 有唯一索引，重复提交返回同一订单。
 
+## 社交探店（参考黑马点评）
+
+- 关注 / 取关 / 粉丝列表 / **互相关注**
+- 旅居博主探店笔记（绑定酒店），可关注博主
+- 笔记点赞、评论、读者 1-5 分评分
+
+详见 [docs/social-dianping.md](docs/social-dianping.md)。演示账号：`traveler` / `foodie`（密码 `demo123`）。
+
+接口摘要补充：
+
+- `POST /api/social/follow`、`DELETE /api/social/follow/{id}`
+- `GET /api/social/bloggers`、`GET /api/social/users/{id}/mutual`
+- `GET /api/notes/feed`、`POST /api/notes`、`POST /api/notes/{id}/like|comments|rate`
+
+
 ## 简历可写的四条
 
 1. 设计「房型 + 日期」日历库存，入住区间 Redis + Lua 原子扣减；本地 **100 并发抢 3 间** 成功单恰好 3、MySQL/Redis 库存归零、零超卖。  

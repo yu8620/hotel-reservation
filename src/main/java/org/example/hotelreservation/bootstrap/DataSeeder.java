@@ -8,6 +8,12 @@ import org.example.hotelreservation.entity.Hotel;
 import org.example.hotelreservation.entity.RoomInventory;
 import org.example.hotelreservation.entity.RoomType;
 import org.example.hotelreservation.entity.User;
+
+import org.example.hotelreservation.entity.BlogNote;
+import org.example.hotelreservation.entity.UserFollow;
+import org.example.hotelreservation.mapper.BlogNoteMapper;
+import org.example.hotelreservation.mapper.UserFollowMapper;
+import java.time.LocalDateTime;
 import org.example.hotelreservation.enums.UserRole;
 import org.example.hotelreservation.inventory.InventoryService;
 import org.example.hotelreservation.mapper.HotelMapper;
@@ -39,12 +45,15 @@ public class DataSeeder implements ApplicationRunner {
     private final HotelProperties properties;
     private final HotelIndexService hotelIndexService;
     private final InventoryService inventoryService;
+    private final BlogNoteMapper blogNoteMapper;
+    private final UserFollowMapper userFollowMapper;
 
     @Override
     public void run(ApplicationArguments args) {
         seedUsers();
         seedHotels();
         seedInventory();
+        seedSocial();
         try {
             hotelIndexService.rebuild(hotelMapper.selectList(null));
         } catch (Exception ex) {
@@ -224,4 +233,84 @@ public class DataSeeder implements ApplicationRunner {
             }
         }
     }
+
+    /**
+     * 旅居博主 + 探店笔记 + 演示关注关系（幂等：有笔记则跳过）。
+     */
+    private void seedSocial() {
+        if (blogNoteMapper.selectCount(null) > 0) {
+            return;
+        }
+        User traveler = ensureBlogger("traveler", "旅居阿宁", "南昌周末探店，专住性价比精选", "demo123");
+        User foodie = ensureBlogger("foodie", "赣味小满", "酒店早餐才是灵魂", "demo123");
+        User demo = userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, "demo"));
+        if (demo != null) {
+            followIfAbsent(demo.getId(), traveler.getId());
+            followIfAbsent(traveler.getId(), demo.getId()); // 互关示例
+            followIfAbsent(demo.getId(), foodie.getId());
+        }
+        List<Hotel> hotels = hotelMapper.selectList(new LambdaQueryWrapper<Hotel>().last("LIMIT 5"));
+        if (hotels.isEmpty()) {
+            return;
+        }
+        String[][] samples = {
+                {"红谷滩夜景太绝了", "住在万达嘉华，电梯直达秋水广场。晚餐后散步江边，灯光倒影很适合拍照。行政酒廊的点心也扎实。", "5"},
+                {"香格里拉江景房实测", "赣江视野开阔，窗帘一拉就是滕王阁方向。早餐中西自助选择多，适合商务出差犒劳自己。", "5"},
+                {"火车站旁赶车友好", "格兰云天到南昌站步行约8分钟，红眼航班/早班火车很方便。房间隔音中等偏上。", "4"},
+                {"八一广场性价比之选", "维也纳位置核心，地铁口近。房间干净，适合短住一两晚，周末周边吃饭选择多。", "4"},
+                {"全季商旅体验", "中山路商圈，步行可达很多小吃。床垫偏硬，适合喜欢硬床的人。洗衣房对长途旅客友好。", "4"},
+        };
+        User[] authors = {traveler, foodie, traveler, foodie, traveler};
+        for (int i = 0; i < hotels.size() && i < samples.length; i++) {
+            BlogNote note = new BlogNote();
+            note.setAuthorId(authors[i].getId());
+            note.setHotelId(hotels.get(i).getId());
+            note.setTitle(samples[i][0]);
+            note.setContent(samples[i][1]);
+            note.setAuthorScore(Integer.parseInt(samples[i][2]));
+            note.setLikeCount(0);
+            note.setCommentCount(0);
+            note.setRatingSum(0);
+            note.setRatingCount(0);
+            note.setCreatedAt(LocalDateTime.now().minusDays(samples.length - i));
+            note.setUpdatedAt(LocalDateTime.now());
+            blogNoteMapper.insert(note);
+        }
+        log.info("social seed ready: bloggers traveler/foodie (demo123), notes={}", samples.length);
+    }
+
+    private User ensureBlogger(String username, String nickname, String bio, String rawPassword) {
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, username));
+        if (user == null) {
+            user = new User();
+            user.setUsername(username);
+            user.setPassword(passwordEncoder.encode(rawPassword));
+            user.setRole(UserRole.USER);
+            user.setNickname(nickname);
+            user.setBio(bio);
+            user.setIsBlogger(1);
+            userMapper.insert(user);
+            return user;
+        }
+        user.setNickname(nickname);
+        user.setBio(bio);
+        user.setIsBlogger(1);
+        userMapper.updateById(user);
+        return user;
+    }
+
+    private void followIfAbsent(Long followerId, Long followeeId) {
+        Long exists = userFollowMapper.selectCount(new LambdaQueryWrapper<UserFollow>()
+                .eq(UserFollow::getFollowerId, followerId)
+                .eq(UserFollow::getFolloweeId, followeeId));
+        if (exists != null && exists > 0) {
+            return;
+        }
+        UserFollow row = new UserFollow();
+        row.setFollowerId(followerId);
+        row.setFolloweeId(followeeId);
+        row.setCreatedAt(LocalDateTime.now());
+        userFollowMapper.insert(row);
+    }
+
 }

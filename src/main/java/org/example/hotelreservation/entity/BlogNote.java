@@ -7,23 +7,25 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
-import org.example.hotelreservation.enums.UserRole;
 
 import java.time.LocalDateTime;
 
 @Data
-@TableName("sys_user")
-public class User {
+@TableName("blog_note")
+public class BlogNote {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private String username;
-    private String password;
-    private String phone;
-    private String nickname;
-    private String avatar;
-    private String bio;
-    private Integer isBlogger;
-    private UserRole role;
+    private Long authorId;
+    private Long hotelId;
+    private String title;
+    private String content;
+    private String coverUrl;
+    /** 作者自己的探店评分 1-5 */
+    private Integer authorScore;
+    private Integer likeCount;
+    private Integer commentCount;
+    private Integer ratingSum;
+    private Integer ratingCount;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
     @TableField(fill = FieldFill.INSERT_UPDATE)
