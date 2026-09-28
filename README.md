@@ -21,7 +21,9 @@ Windows：`mvnw.cmd spring-boot:run`
 
 | 账号 | 密码 | 角色 |
 |------|------|------|
-| demo | demo123 | 用户 |
+| demo | demo123 | 用户（已关注 traveler/foodie，并与 traveler 互关） |
+| traveler | demo123 | 旅居博主「旅居阿宁」 |
+| foodie | demo123 | 旅居博主「赣味小满」 |
 | admin | admin123 | 管理员 |
 
 压测房型：`南昌万达嘉华酒店` 的 **豪华大床房**（`room_type_id = 1`），总共 **3 间**。
@@ -93,6 +95,9 @@ catch 里 `restoreRedis`。下单写库用 `TransactionTemplate` 包住「扣 My
 | 状态机 | `enums/OrderStatus.java` |
 | 搜索 + 降级 | `service/HotelQueryService.java` |
 | TTL + DLX | `config/RabbitMqConfig.java` |
+| 关注 / 互关 | `service/FollowService.java`、`web/FollowController.java` |
+| 探店笔记 / 赞评评分 | `service/BlogNoteService.java`、`web/NoteController.java` |
+| 社交表结构 | `db/migration/V2__social.sql` |
 
 ## 接口摘要
 
@@ -139,4 +144,5 @@ catch 里 `restoreRedis`。下单写库用 `TransactionTemplate` 包住「扣 My
 
 - 日历库存与 Lua 扣减：[docs/inventory-lua.md](docs/inventory-lua.md)
 - 下单/支付/关单一致性：[docs/order-consistency.md](docs/order-consistency.md)
+- 社交探店（关注 / 笔记 / 互动）：[docs/social-dianping.md](docs/social-dianping.md)
 

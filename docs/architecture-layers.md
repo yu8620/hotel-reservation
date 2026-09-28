@@ -38,3 +38,14 @@ MySQL / Redis / ES / RabbitMQ
 
 - 缓存设计：[cache-design.md](./cache-design.md)
 - 防超卖压测：[loadtest-oversell.md](./loadtest-oversell.md)
+
+## 社交探店（增量）
+
+在既有分层上增加应用服务，不新增跨层依赖：
+
+- `web`：`FollowController`、`NoteController`
+- `service`：`FollowService`、`BlogNoteService`
+- `mapper` / `entity`：关注与笔记相关表
+- 迁移：`db/migration/V2__social.sql`
+
+社交写路径不进入 `inventory`；与日历扣减解耦。详见 [social-dianping.md](./social-dianping.md)。
